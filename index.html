@@ -6836,9 +6836,57 @@
     function atualizarBotoesAudio(botaoAtivo=null){
       document.querySelectorAll(".btn.audio").forEach(botao=>{botao.classList.toggle("speaking",botao===botaoAtivo);botao.textContent=botao===botaoAtivo?"■":"🔊";});
     }
+    function limparTextoParaLeitura(texto){
+      return String(texto)
+        .replace(/\bv\.\s*/gi,"versículo ")
+        .replace(/\bvs\.\s*/gi,"versículos ")
+        .replace(/\bcap\.\s*/gi,"capítulo ")
+        .replace(/\bcaps\.\s*/gi,"capítulos ")
+        .replace(/\bref\.\s*/gi,"referência ")
+        .replace(/\bobs\.\s*/gi,"observação ")
+        .replace(/\bSr\.\s*/g,"Senhor ")
+        .replace(/\bSra\.\s*/g,"Senhora ")
+        .replace(/\bDr\.\s*/g,"Doutor ")
+        .replace(/\bDra\.\s*/g,"Doutora ")
+        .replace(/\b1\s*Coríntios\b/gi,"Primeira Coríntios")
+        .replace(/\b2\s*Coríntios\b/gi,"Segunda Coríntios")
+        .replace(/\b1\s*Tessalonicenses\b/gi,"Primeira Tessalonicenses")
+        .replace(/\b2\s*Tessalonicenses\b/gi,"Segunda Tessalonicenses")
+        .replace(/\b1\s*Timóteo\b/gi,"Primeira Timóteo")
+        .replace(/\b2\s*Timóteo\b/gi,"Segunda Timóteo")
+        .replace(/\b1\s*Pedro\b/gi,"Primeira Pedro")
+        .replace(/\b2\s*Pedro\b/gi,"Segunda Pedro")
+        .replace(/\b1\s*João\b/gi,"Primeira João")
+        .replace(/\b2\s*João\b/gi,"Segunda João")
+        .replace(/\b3\s*João\b/gi,"Terceira João")
+        .replace(/\b(\d+):(\d+)\b/g,"capítulo $1, versículo $2")
+        .replace(/[“”]/g,'"')
+        .replace(/[‘’]/g,"'")
+        .replace(/[◇✦▣♡🔥☀⌂▤↗←→■🔊]/g," ")
+        .replace(/\s*—\s*/g,". ")
+        .replace(/\s+/g," ")
+        .trim();
+    }
     function escolherVozPortugues(){
       const vozes=window.speechSynthesis?.getVoices?.()||[];
-      return vozes.find(voz=>voz.lang?.toLowerCase().startsWith("pt-br"))||vozes.find(voz=>voz.lang?.toLowerCase().startsWith("pt"))||null;
+      const pontuar=voz=>{
+        const nome=(voz.name||"").toLowerCase(), lang=(voz.lang||"").toLowerCase();
+        let pontos=0;
+        if(lang==="pt-br")pontos+=100;
+        else if(lang.startsWith("pt-br"))pontos+=90;
+        else if(lang.startsWith("pt"))pontos+=45;
+        if(nome.includes("brazil")||nome.includes("brasil"))pontos+=35;
+        if(nome.includes("google"))pontos+=25;
+        if(nome.includes("microsoft"))pontos+=22;
+        if(nome.includes("natural")||nome.includes("neural")||nome.includes("online"))pontos+=18;
+        if(voz.localService===false)pontos+=8;
+        return pontos;
+      };
+      return vozes
+        .filter(voz=>{const nome=(voz.name||"").toLowerCase(), lang=(voz.lang||"").toLowerCase(); return lang==="pt-br"||lang.startsWith("pt-br")||nome.includes("brazil")||nome.includes("brasil")||((nome.includes("google")||nome.includes("microsoft"))&&lang.startsWith("pt"));})
+        .sort((a,b)=>pontuar(b)-pontuar(a))[0]
+        || vozes.filter(voz=>(voz.lang||"").toLowerCase().startsWith("pt")).sort((a,b)=>pontuar(b)-pontuar(a))[0]
+        || null;
     }
     function pararLeitura(){
       if(!("speechSynthesis" in window))return;
@@ -6848,11 +6896,14 @@
       if(!("speechSynthesis" in window)){mostrarToast("Leitura por voz não disponível neste navegador.");return;}
       if(botao?.classList.contains("speaking")){pararLeitura();return;}
       window.speechSynthesis.cancel();
-      const fala=new SpeechSynthesisUtterance(texto.replace(/\s+/g," ").trim());
+      const fala=new SpeechSynthesisUtterance(limparTextoParaLeitura(texto));
       fala.lang="pt-BR"; fala.rate=0.92; fala.pitch=1; fala.volume=1;
       const voz=escolherVozPortugues(); if(voz)fala.voice=voz;
       fala.onend=()=>atualizarBotoesAudio(); fala.onerror=()=>{atualizarBotoesAudio();mostrarToast("Não foi possível concluir a leitura.");};
       atualizarBotoesAudio(botao); window.speechSynthesis.speak(fala);
+    }
+    if("speechSynthesis" in window){
+      window.speechSynthesis.onvoiceschanged=()=>escolherVozPortugues();
     }
     function alternarTema(){ const dados=lerDados(); dados.tema=document.body.classList.toggle("dark")?"dark":"light"; salvarDados(dados); atualizarBotaoTema(); }
     function atualizarBotaoTema(){ const escuro=document.body.classList.contains("dark"); document.getElementById("themeButton").textContent=escuro?"☀ Tema claro":"☾ Tema escuro"; }
