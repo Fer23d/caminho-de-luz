@@ -62,7 +62,7 @@
     .explanation-card:before { position:absolute; top:0; left:24px; width:55px; height:3px; content:""; border-radius:0 0 5px 5px; background:var(--gold); }
     .explanation-card h3 { display:flex; gap:9px; align-items:center; margin-bottom:12px; font-size:clamp(20px,3vw,25px); }
     .explanation-card p { margin:0; color:var(--text); line-height:1.85; }
-    .actions { display:flex; flex-wrap:wrap; gap:9px; margin-top:22px; }.btn { display:inline-flex; gap:7px; align-items:center; justify-content:center; padding:11px 16px; color:#fff; border:1px solid #163f5b; border-radius:999px; background:#163f5b; font-size:13px; font-weight:800; transition:.2s; }.btn:hover { transform:translateY(-2px); box-shadow:0 8px 18px rgba(16,44,70,.18); }.btn.secondary { color:var(--text); border-color:var(--line); background:var(--card); }.btn.gold { color:#102c46; border-color:var(--gold-soft); background:var(--gold-soft); }.btn.danger { color:var(--danger); border-color:var(--line); background:var(--card); }.audio-controls { display:inline-flex; gap:6px; align-items:center; }.btn.audio { min-width:44px; padding:11px 13px; color:var(--navy); border-color:var(--gold-soft); background:var(--card-2); }.btn.audio.speaking,.btn.audio.paused { color:#102c46; border-color:var(--gold); background:var(--gold-soft); }.btn.audio-stop { min-width:44px; padding:11px 13px; color:var(--danger); border-color:var(--line); background:var(--card); }
+    .actions { display:flex; flex-wrap:wrap; gap:9px; margin-top:22px; }.btn { display:inline-flex; gap:7px; align-items:center; justify-content:center; padding:11px 16px; color:#fff; border:1px solid #163f5b; border-radius:999px; background:#163f5b; font-size:13px; font-weight:800; transition:.2s; }.btn:hover { transform:translateY(-2px); box-shadow:0 8px 18px rgba(16,44,70,.18); }.btn.secondary { color:var(--text); border-color:var(--line); background:var(--card); }.btn.gold { color:#102c46; border-color:var(--gold-soft); background:var(--gold-soft); }.btn.danger { color:var(--danger); border-color:var(--line); background:var(--card); }.audio-controls { display:inline-flex; gap:6px; align-items:center; }.btn.audio { min-width:44px; padding:11px 13px; color:var(--navy); border-color:var(--gold-soft); background:var(--card-2); }.btn.audio.active { color:#102c46; border-color:var(--gold); background:var(--gold-soft); }.btn.audio-stop { min-width:44px; padding:11px 13px; color:var(--danger); border-color:var(--line); background:var(--card); }
     .progress-wrap { margin-top:24px; }.progress-label { display:flex; justify-content:space-between; margin-bottom:8px; color:var(--muted); font-size:12px; font-weight:800; }.progress { height:10px; overflow:hidden; border-radius:99px; background:var(--line); }.progress-fill { height:100%; border-radius:99px; background:linear-gradient(90deg,var(--gold),#f0cf82); transition:width .7s ease; }
     .day-nav { display:flex; gap:12px; align-items:center; justify-content:space-between; margin:20px 0; }.day-count { color:var(--gold); font-weight:900; text-align:center; }
     .grid { display:grid; grid-template-columns:repeat(12,1fr); gap:20px; }.span-7 { grid-column:span 7; }.span-5 { grid-column:span 5; }
@@ -6796,7 +6796,7 @@
 
     function textoCompleto(v){ return `“${v.texto}” — ${v.referencia}\n\nReflexão: ${v.reflexao}\n\nEntendendo a Palavra de Hoje:\n${v.explicacao}`; }
     function textoDevocionalParaLeitura(v){ return `${v.referencia}. ${v.texto}. Reflexão para o coração: ${v.reflexao}. Entendendo a Palavra de Hoje: ${v.explicacao}`; }
-    function botaoAudio(texto,label="Ouvir texto"){ return `<span class="audio-controls"><button class="btn audio" type="button" title="${label}" aria-label="${label}" onclick='alternarLeitura(${JSON.stringify(texto)}, this)'>▶</button><button class="btn audio-stop" type="button" title="Parar leitura" aria-label="Parar leitura" onclick="pararLeitura()">⏹</button></span>`; }
+    function botaoAudio(texto,label="Ouvir texto"){ return `<span class="audio-controls"><button class="btn audio audio-play" type="button" title="${label} / continuar" aria-label="${label} / continuar" onclick='iniciarLeitura(${JSON.stringify(texto)}, this)'>▶</button><button class="btn audio audio-pause" type="button" title="Pausar leitura" aria-label="Pausar leitura" onclick="pausarLeitura()">⏸</button><button class="btn audio-stop" type="button" title="Parar leitura" aria-label="Parar leitura" onclick="pararLeitura()">⏹</button></span>`; }
     function cardVersiculo(v,id){
       return `<p class="eyebrow">Uma Palavra para fortalecer sua fé</p><div class="verse-text">${v.texto}</div><div class="verse-ref">${v.referencia}</div>
       <div class="reflection"><strong>Reflexão para o coração</strong><br>${v.reflexao}</div>
@@ -6835,14 +6835,10 @@
     async function compartilharTexto(texto){ if(navigator.share){try{await navigator.share({title:"Caminho de Luz",text:texto});}catch(e){if(e.name!=="AbortError")await copiarTexto(texto);}}else await copiarTexto(texto); }
     let botaoAudioAtual=null, utteranceAtual=null;
     function atualizarBotoesAudio(botaoAtivo=null, estado="idle"){
-      document.querySelectorAll(".btn.audio").forEach(botao=>{
-        const ativo=botao===botaoAtivo;
-        botao.classList.toggle("speaking",ativo&&estado==="speaking");
-        botao.classList.toggle("paused",ativo&&estado==="paused");
-        botao.textContent=ativo&&estado==="speaking"?"⏸":"▶";
-        botao.setAttribute("aria-label",ativo&&estado==="speaking"?"Pausar leitura":"Ouvir texto");
-        botao.title=ativo&&estado==="speaking"?"Pausar leitura":ativo&&estado==="paused"?"Continuar leitura":"Ouvir texto";
-      });
+      document.querySelectorAll(".btn.audio").forEach(botao=>botao.classList.remove("active"));
+      const grupo=botaoAtivo?.closest?.(".audio-controls");
+      const seletor=estado==="paused"?".audio-pause":estado==="speaking"?".audio-play":null;
+      if(grupo&&seletor)grupo.querySelector(seletor)?.classList.add("active");
     }
     function limparTextoParaLeitura(texto){
       return String(texto)
@@ -6870,7 +6866,7 @@
         .replace(/\b(\d+):(\d+)\b/g,"capítulo $1, versículo $2")
         .replace(/[“”]/g,'"')
         .replace(/[‘’]/g,"'")
-        .replace(/[◇✦▣♡🔥☀⌂▤↗←→■🔊]/g," ")
+        .replace(/[◇✦▣♡🔥☀⌂▤↗←→■🔊▶⏸⏹]/g," ")
         .replace(/\s*—\s*/g,". ")
         .replace(/\s+/g," ")
         .trim();
@@ -6902,6 +6898,12 @@
     }
     function iniciarLeitura(texto,botao=null){
       if(!("speechSynthesis" in window)){mostrarToast("Leitura por voz não disponível neste navegador.");return;}
+      if(window.speechSynthesis.speaking&&window.speechSynthesis.paused){
+        window.speechSynthesis.resume(); atualizarBotoesAudio(botaoAudioAtual||botao,"speaking"); return;
+      }
+      if(window.speechSynthesis.speaking&&!window.speechSynthesis.paused){
+        mostrarToast("Já existe uma leitura em andamento."); return;
+      }
       window.speechSynthesis.cancel();
       utteranceAtual=new SpeechSynthesisUtterance(limparTextoParaLeitura(texto));
       utteranceAtual.lang="pt-BR"; utteranceAtual.rate=0.92; utteranceAtual.pitch=1; utteranceAtual.volume=1;
@@ -6910,15 +6912,11 @@
       utteranceAtual.onerror=()=>{botaoAudioAtual=null;utteranceAtual=null;atualizarBotoesAudio();mostrarToast("Não foi possível concluir a leitura.");};
       botaoAudioAtual=botao; atualizarBotoesAudio(botao,"speaking"); window.speechSynthesis.speak(utteranceAtual);
     }
-    function alternarLeitura(texto,botao=null){
+    function pausarLeitura(){
       if(!("speechSynthesis" in window)){mostrarToast("Leitura por voz não disponível neste navegador.");return;}
-      if(window.speechSynthesis.speaking&&window.speechSynthesis.paused){
-        window.speechSynthesis.resume(); atualizarBotoesAudio(botaoAudioAtual||botao,"speaking"); return;
-      }
       if(window.speechSynthesis.speaking&&!window.speechSynthesis.paused){
-        window.speechSynthesis.pause(); atualizarBotoesAudio(botaoAudioAtual||botao,"paused"); return;
+        window.speechSynthesis.pause(); atualizarBotoesAudio(botaoAudioAtual,"paused");
       }
-      iniciarLeitura(texto,botao);
     }
     if("speechSynthesis" in window){
       window.speechSynthesis.onvoiceschanged=()=>escolherVozPortugues();
