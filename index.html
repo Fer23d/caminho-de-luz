@@ -6796,7 +6796,7 @@
 
     function textoCompleto(v){ return `“${v.texto}” — ${v.referencia}\n\nReflexão: ${v.reflexao}\n\nEntendendo a Palavra de Hoje:\n${v.explicacao}`; }
     function textoDevocionalParaLeitura(v){ return `${v.referencia}. ${v.texto}. Reflexão para o coração: ${v.reflexao}. Entendendo a Palavra de Hoje: ${v.explicacao}`; }
-    function botaoAudio(texto,label="Ouvir texto"){ return `<span class="audio-controls"><button class="btn audio audio-play" type="button" title="${label} / continuar" aria-label="${label} / continuar" onclick='iniciarLeitura(${JSON.stringify(texto)}, this)'>▶</button><button class="btn audio audio-pause" type="button" title="Pausar leitura" aria-label="Pausar leitura" onclick="pausarLeitura()">⏸</button><button class="btn audio-stop" type="button" title="Parar leitura" aria-label="Parar leitura" onclick="pararLeitura()">⏹</button></span>`; }
+    function botaoAudio(texto,label="Ouvir texto"){ return `<span class="audio-controls"><button class="btn audio audio-play" type="button" title="${label}" aria-label="${label}" onclick='iniciarLeitura(${JSON.stringify(texto)}, this)'>▶</button><button class="btn audio-stop" type="button" title="Parar leitura" aria-label="Parar leitura" onclick="pararLeitura()">⏹</button></span>`; }
     function cardVersiculo(v,id){
       return `<p class="eyebrow">Uma Palavra para fortalecer sua fé</p><div class="verse-text">${v.texto}</div><div class="verse-ref">${v.referencia}</div>
       <div class="reflection"><strong>Reflexão para o coração</strong><br>${v.reflexao}</div>
@@ -6833,12 +6833,10 @@
     }
     async function copiarTexto(texto){ try{await navigator.clipboard.writeText(texto);}catch{const a=document.createElement("textarea");a.value=texto;document.body.appendChild(a);a.select();document.execCommand("copy");a.remove();}mostrarToast("Versículo copiado."); }
     async function compartilharTexto(texto){ if(navigator.share){try{await navigator.share({title:"Caminho de Luz",text:texto});}catch(e){if(e.name!=="AbortError")await copiarTexto(texto);}}else await copiarTexto(texto); }
-    let botaoAudioAtual=null, utteranceAtual=null;
+    let botaoAudioAtual=null, utteranceAtual=null, pedacosTexto=[], indiceAtual=0;
     function atualizarBotoesAudio(botaoAtivo=null, estado="idle"){
       document.querySelectorAll(".btn.audio").forEach(botao=>botao.classList.remove("active"));
-      const grupo=botaoAtivo?.closest?.(".audio-controls");
-      const seletor=estado==="paused"?".audio-pause":estado==="speaking"?".audio-play":null;
-      if(grupo&&seletor)grupo.querySelector(seletor)?.classList.add("active");
+      if(estado==="speaking") botaoAtivo?.classList.add("active");
     }
     function limparTextoParaLeitura(texto){
       return String(texto)
@@ -6892,31 +6890,40 @@
         || vozes.filter(voz=>(voz.lang||"").toLowerCase().startsWith("pt")).sort((a,b)=>pontuar(b)-pontuar(a))[0]
         || null;
     }
+    function dividirTextoEmPedacos(texto){
+      const textoLimpo=limparTextoParaLeitura(texto);
+      const frases=textoLimpo.match(/[^.!?;:]+[.!?;:]?/g)||[textoLimpo];
+      const pedacos=[]; let atual="";
+      frases.forEach(frase=>{
+        frase=frase.trim(); if(!frase)return;
+        if((atual+" "+frase).trim().length<=220) atual=(atual+" "+frase).trim();
+        else { if(atual)pedacos.push(atual); while(frase.length>220){ const corte=frase.lastIndexOf(" ",220); pedacos.push(frase.slice(0,corte>80?corte:220).trim()); frase=frase.slice(corte>80?corte:220).trim(); } atual=frase; }
+      });
+      if(atual)pedacos.push(atual);
+      return pedacos;
+    }
     function pararLeitura(){
       if(!("speechSynthesis" in window))return;
-      window.speechSynthesis.cancel(); botaoAudioAtual=null; utteranceAtual=null; atualizarBotoesAudio();
+      indiceAtual=0; pedacosTexto=[]; utteranceAtual=null; botaoAudioAtual=null;
+      window.speechSynthesis.cancel(); atualizarBotoesAudio();
+    }
+    function lerProximoPedaco(){
+      if(!("speechSynthesis" in window)){mostrarToast("Leitura por voz não disponível neste navegador.");return;}
+      if(indiceAtual>=pedacosTexto.length){
+        indiceAtual=0; pedacosTexto=[]; utteranceAtual=null; botaoAudioAtual=null; atualizarBotoesAudio(); return;
+      }
+      utteranceAtual=new SpeechSynthesisUtterance(pedacosTexto[indiceAtual]);
+      utteranceAtual.lang="pt-BR"; utteranceAtual.rate=0.92; utteranceAtual.pitch=1; utteranceAtual.volume=1;
+      const voz=escolherVozPortugues(); if(voz)utteranceAtual.voice=voz;
+      utteranceAtual.onend=()=>{ indiceAtual++; lerProximoPedaco(); };
+      utteranceAtual.onerror=()=>{botaoAudioAtual=null;utteranceAtual=null;atualizarBotoesAudio();mostrarToast("Não foi possível concluir a leitura.");};
+      atualizarBotoesAudio(botaoAudioAtual,"speaking"); window.speechSynthesis.speak(utteranceAtual);
     }
     function iniciarLeitura(texto,botao=null){
       if(!("speechSynthesis" in window)){mostrarToast("Leitura por voz não disponível neste navegador.");return;}
-      if(window.speechSynthesis.speaking&&window.speechSynthesis.paused){
-        window.speechSynthesis.resume(); atualizarBotoesAudio(botaoAudioAtual||botao,"speaking"); return;
-      }
-      if(window.speechSynthesis.speaking&&!window.speechSynthesis.paused){
-        mostrarToast("Já existe uma leitura em andamento."); return;
-      }
       window.speechSynthesis.cancel();
-      utteranceAtual=new SpeechSynthesisUtterance(limparTextoParaLeitura(texto));
-      utteranceAtual.lang="pt-BR"; utteranceAtual.rate=0.92; utteranceAtual.pitch=1; utteranceAtual.volume=1;
-      const voz=escolherVozPortugues(); if(voz)utteranceAtual.voice=voz;
-      utteranceAtual.onend=()=>{botaoAudioAtual=null;utteranceAtual=null;atualizarBotoesAudio();};
-      utteranceAtual.onerror=()=>{botaoAudioAtual=null;utteranceAtual=null;atualizarBotoesAudio();mostrarToast("Não foi possível concluir a leitura.");};
-      botaoAudioAtual=botao; atualizarBotoesAudio(botao,"speaking"); window.speechSynthesis.speak(utteranceAtual);
-    }
-    function pausarLeitura(){
-      if(!("speechSynthesis" in window)){mostrarToast("Leitura por voz não disponível neste navegador.");return;}
-      if(window.speechSynthesis.speaking&&!window.speechSynthesis.paused){
-        window.speechSynthesis.pause(); atualizarBotoesAudio(botaoAudioAtual,"paused");
-      }
+      pedacosTexto=dividirTextoEmPedacos(texto); indiceAtual=0; botaoAudioAtual=botao;
+      setTimeout(()=>lerProximoPedaco(),0);
     }
     if("speechSynthesis" in window){
       window.speechSynthesis.onvoiceschanged=()=>escolherVozPortugues();
